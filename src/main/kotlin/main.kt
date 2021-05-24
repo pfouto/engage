@@ -6,26 +6,43 @@ import java.io.Reader
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
-import java.net.SocketException
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.security.InvalidParameterException
 import java.util.*
 import kotlin.collections.ArrayList
 
-private val logger: Logger = LogManager.getLogger()
-
 fun main(args: Array<String>) {
+
+    System.setProperty("log4j2.configurationFile", "config/log4j2.xml")
+
+    val logger: Logger = LogManager.getLogger()
 
     val reader: Reader = Files.newBufferedReader(Paths.get("config/tree.json"))
     val tree = Gson().fromJson(reader, TreeFile::class.java)
     reader.close()
 
-    val me = InetAddress.getLocalHost().hostName
+    val hostname = InetAddress.getLocalHost().hostName
+    val me = if (hostname.indexOf('.') != -1) hostname.subSequence(0, hostname.indexOf('.')) else hostname
+
     logger.info("Me $me")
     val myInfo = tree.nodes[me] ?: throw AssertionError("Am not part of tree")
 
-    val collect = tree.links.filter { it.contains(me) }.map { it.first { p -> p != me } }.toCollection(ArrayList())
+    val myNeighs = tree.links.filter { it.contains(me) }.map { it.first { p -> p != me } }.toCollection(ArrayList())
+
+    val partitionTargets: MutableMap<String, MutableList<String>> = mutableMapOf()
+    if(myInfo.local_db) {
+        for (partition in myInfo.partitions!!) {
+            partitionTargets[partition] = arrayListOf()
+            tree.nodes.filter { (h, _) -> h != hostname && h != me }.forEach { (h, pI) ->
+                if (pI.local_db && pI.partitions!!.contains(partition))
+                    partitionTargets[partition]!!.add(h)
+            }
+        }
+        logger.info(partitionTargets)
+    }
+
+    val all = tree.nodes.map { n -> n.key }.toSet()
 
     val props = Babel.loadConfig(args, "config/properties.conf")
     addInterfaceIp(props)
@@ -34,7 +51,7 @@ fun main(args: Array<String>) {
 
     logger.info(tree)
 
-    val engage = Engage(props, myInfo, collect)
+    val engage = Engage(props, myInfo, myNeighs, partitionTargets, all)
     babel.registerProtocol(engage)
     engage.init(null)
 

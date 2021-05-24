@@ -1,33 +1,26 @@
 {
   "nodes": {
-    "debian-1": {
+    "gros-1": {
       "local_db": true,
       "partitions" : ["part1", "part3"]
     },
-    "debian-2": {
-      "local_db": false
-    },
-    "debian-3": {
+    "gros-2": {
       "local_db": true,
       "partitions" : ["part2", "part1"]
     },
-    "debian-4": {
+    "gros-3": {
       "local_db": true,
       "partitions" : ["part3", "part2"]
     }
   },
   "links": [
     [
-      "debian-1",
-      "debian-2"
+      "gros-1",
+      "gros-2"
     ],
     [
-      "debian-3",
-      "debian-2"
-    ],
-    [
-      "debian-4",
-      "debian-3"
+      "gros-2",
+      "gros-3"
     ]
   ]
 }

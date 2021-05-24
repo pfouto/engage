@@ -15,7 +15,7 @@ class GossipMessage(val parts: Map<String, Pair<Host, Int>>) : ProtoMessage(MSG_
             override fun serialize(msg: GossipMessage, out: ByteBuf) {
                 out.writeInt(msg.parts.size)
                 msg.parts.forEach {
-                    utils.serialize(it.key, out)
+                    utils.serializeString(it.key, out)
                     Host.serializer.serialize(it.value.first, out)
                     out.writeInt(it.value.second)
                 }
@@ -25,7 +25,7 @@ class GossipMessage(val parts: Map<String, Pair<Host, Int>>) : ProtoMessage(MSG_
                 val nElements = input.readInt()
                 val map: MutableMap<String, Pair<Host, Int>> = mutableMapOf()
                 for (i in 0 until nElements) {
-                    val key = utils.deserialize(input)
+                    val key = utils.deserializeString(input)
                     val host = Host.serializer.deserialize(input)
                     val steps = input.readInt()
                     map[key] = Pair(host, steps)
