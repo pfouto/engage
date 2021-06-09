@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     implementation("com.google.code.gson:gson:2.8.6")
-    implementation("com.github.pfouto:babel-core:0.4.39")
+    implementation("com.github.pfouto:babel-core:0.4.42")
     implementation("com.datastax.oss:java-driver-core:4.11.1")
     testImplementation(kotlin("test-junit"))
 }

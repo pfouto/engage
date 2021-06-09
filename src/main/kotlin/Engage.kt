@@ -1,6 +1,8 @@
 import com.datastax.oss.driver.api.core.CqlSession
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader
+import messages.mixed.MetadataFlush
+import messages.mixed.UpdateNotification
 import messages.peer.GossipMessage
 import messages.server.TargetsMessage
 import org.apache.logging.log4j.LogManager
@@ -19,24 +21,21 @@ import java.time.Duration
 import java.util.*
 import kotlin.system.exitProcess
 
-
 const val DEFAULT_SERVER_PORT = "1500"
 const val DEFAULT_PEER_PORT = "1600"
 
 class Engage(
-    props: Properties,
-    myInfo: PartitionInfo,
-    links: ArrayList<String>,
+    props: Properties, myInfo: PartitionInfo, links: ArrayList<String>,
     private val targets: Map<String, List<String>>,
     private val all: Set<String>,
-) :
-    GenericProtocol("Engage", 100) {
+) : GenericProtocol("Engage", 100) {
 
     private val logger = LogManager.getLogger()
 
-    private val peerChannel: Int
     private val me: Host
+    private val peerChannel: Int
     private val serverChannel: Int?
+    private var localClient: Host? = null
     private val peerPort: Int
 
     private val reconnectInterval: Long = props.getProperty("reconnect_interval", "5000").toLong()
@@ -56,9 +55,7 @@ class Engage(
             serverProps.setProperty(SimpleServerChannel.ADDRESS_KEY, "localhost")
             serverProps.setProperty(SimpleServerChannel.PORT_KEY, props.getProperty("server.port", DEFAULT_SERVER_PORT))
             createChannel(SimpleServerChannel.NAME, serverProps)
-        } else {
-            null
-        }
+        } else null
 
         val peerProps = Properties()
         peerProps.setProperty(TCPChannel.ADDRESS_KEY, address)
@@ -78,17 +75,28 @@ class Engage(
         registerChannelEventHandler(peerChannel, InConnectionDown.EVENT_ID, this::onInConnectionDown)
         registerChannelEventHandler(peerChannel, OutConnectionUp.EVENT_ID, this::onOutConnectionUp)
         registerChannelEventHandler(peerChannel, InConnectionUp.EVENT_ID, this::onInConnectionUp)
+
+        registerMessageSerializer(peerChannel, GossipMessage.MSG_ID, GossipMessage.serializer)
+        registerMessageSerializer(peerChannel, MetadataFlush.MSG_ID, MetadataFlush.serializer)
+        registerMessageSerializer(peerChannel, UpdateNotification.MSG_ID, UpdateNotification.serializer)
+
+        registerMessageHandler(peerChannel, GossipMessage.MSG_ID, this::onGossipMessage, this::onMessageFailed)
+        registerMessageHandler(peerChannel, UpdateNotification.MSG_ID, this::onClientUpdateNot, this::onMessageFailed)
+
         if (serverChannel != null) {
             registerChannelEventHandler(serverChannel, ClientDownEvent.EVENT_ID, this::onClientDown)
             registerChannelEventHandler(serverChannel, ClientUpEvent.EVENT_ID, this::onClientUp)
+
             registerMessageSerializer(serverChannel, TargetsMessage.MSG_ID, TargetsMessage.serializer)
+            registerMessageSerializer(serverChannel, MetadataFlush.MSG_ID, MetadataFlush.serializer)
+            registerMessageSerializer(serverChannel, UpdateNotification.MSG_ID, UpdateNotification.serializer)
+
+            registerMessageHandler(peerChannel, UpdateNotification.MSG_ID, this::onPeerUpdateNot, this::onMessageFailed)
+            registerMessageHandler(peerChannel, MetadataFlush.MSG_ID, this::onPeerMetadataFlush, this::onMessageFailed)
         }
 
         registerTimerHandler(ReconnectTimer.TIMER_ID, this::onReconnectTimer)
         registerTimerHandler(GossipTimer.TIMER_ID, this::onGossipTimer)
-
-        registerMessageSerializer(peerChannel, GossipMessage.MSG_ID, GossipMessage.serializer)
-        registerMessageHandler(peerChannel, GossipMessage.MSG_ID, this::onGossipMessage, this::onMessageFailed)
 
         neighbours.keys.forEach {
             logger.info("Connecting to $it")
@@ -121,6 +129,54 @@ class Engage(
         logger.debug("Received $msg from ${from.address.canonicalHostName}")
         val info = neighbours[from] ?: throw AssertionError("Not in neighbours list: $from")
         info.partitions = msg.parts
+    }
+
+    private fun propagateUN(msg: UpdateNotification, sourceEdge: Host?) {
+        neighbours.forEach { (neigh, nState) ->
+            if (neigh != sourceEdge) {
+                if (nState.partitions.containsKey(msg.partition)) {
+                    //Direct propagate (and flush MF)
+                    val toSend: UpdateNotification
+                    if (nState.pendingMF != null) {
+                        toSend = msg.copyMergingMF(nState.pendingMF!!)
+                        nState.pendingMF = null
+                    } else toSend = msg
+
+                    sendMessage(peerChannel, toSend, neigh)
+                } else {
+                    //Create or merge MF
+                    if (nState.pendingMF != null) {
+                        //TODO maybe only store if from client? else flush?
+                        nState.pendingMF!!.merge(msg.source, msg.vUp)
+                    } else {
+                        nState.pendingMF = MetadataFlush.single(msg.source, msg.vUp)
+                        //TODO setup timer
+                    }
+                }
+            }
+        }
+    }
+
+    private fun onClientUpdateNot(msg: UpdateNotification, from: Host, sourceProto: Short, channelId: Int) {
+        logger.debug("Received $msg from client ${from.address.canonicalHostName}")
+        propagateUN(msg, null)
+    }
+
+
+    private fun onPeerUpdateNot(msg: UpdateNotification, from: Host, sourceProto: Short, channelId: Int) {
+        logger.debug("Received $msg from peer ${from.address.canonicalHostName}")
+        if (!neighbours.containsKey(from)) throw AssertionError("Msg from unknown neigh $from")
+        //TODO store MF?
+        propagateUN(msg, from)
+        if (serverChannel != null)
+            sendMessage(serverChannel, msg, localClient!!)
+    }
+
+    private fun onPeerMetadataFlush(msg: MetadataFlush, from: Host, sourceProto: Short, channelId: Int) {
+        logger.debug("Received $msg from ${from.address.canonicalHostName}")
+        if (!neighbours.containsKey(from)) throw AssertionError("Msg from unknown neigh $from")
+
+        //TODO send to all neighs except, and to client. Do not enq!
     }
 
     private fun onMessageFailed(msg: ProtoMessage, to: Host, destProto: Short, cause: Throwable, channelId: Int) {
@@ -160,7 +216,7 @@ class Engage(
 
     private fun onClientUp(event: ClientUpEvent, channelId: Int) {
         logger.info("Client connection up from ${event.client}, creating partitions and tables")
-
+        localClient = event.client
         val loader = DriverConfigLoader.programmaticBuilder()
             .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(10)).build()
         CqlSession.builder().withConfigLoader(loader).build().use { session ->
