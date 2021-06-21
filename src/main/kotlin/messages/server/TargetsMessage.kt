@@ -4,7 +4,7 @@ import io.netty.buffer.ByteBuf
 import pt.unl.fct.di.novasys.babel.generic.ProtoMessage
 import pt.unl.fct.di.novasys.network.ISerializer
 
-class TargetsMessage(val targets: Map<String, List<String>>, val all: Set<String>) : ProtoMessage(MSG_ID) {
+class TargetsMessage(val targets: Map<String, List<String>>, val all: Set<String>, val bayouStabMs: Int) : ProtoMessage(MSG_ID) {
 
     companion object {
         const val MSG_ID: Short = 201
@@ -20,6 +20,7 @@ class TargetsMessage(val targets: Map<String, List<String>>, val all: Set<String
                 }
                 out.writeInt(msg.all.size)
                 msg.all.forEach { utils.serializeString(it, out) }
+                out.writeInt(msg.bayouStabMs);
             }
 
             override fun deserialize(input: ByteBuf): TargetsMessage {
@@ -36,13 +37,14 @@ class TargetsMessage(val targets: Map<String, List<String>>, val all: Set<String
                 val all: MutableSet<String> = mutableSetOf()
                 for (i in 0 until nAll)
                     all.add(utils.deserializeString(input))
-                return TargetsMessage(map, all)
+                val bayouStabMs = input.readInt()
+                return TargetsMessage(map, all, bayouStabMs)
             }
         }
     }
 
     override fun toString(): String {
-        return "TargetsMessage(targets=$targets, all=$all)"
+        return "TargetsMessage(targets=$targets, all=$all, bayouStabMs=$bayouStabMs)"
     }
 
 

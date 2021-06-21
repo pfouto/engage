@@ -7,5 +7,10 @@ data class PartitionInfo(val local_db: Boolean, val partitions: List<String>?)
 
 data class NeighState(
     var connected: Boolean = false, var partitions: Map<String, Pair<Host, Int>> = mutableMapOf(),
-    var pendingMF: MetadataFlush? = null,
-)
+    var pendingMF: MetadataFlush? = null, var timerId: Long = -1,
+) {
+    override fun toString(): String {
+        return "(${if (connected) "up" else "down"}, ${partitions.keys}" +
+                "${if (pendingMF != null) ", mf=$pendingMF" else ""}${if (timerId != -1L) ", tid=$timerId" else ""})"
+    }
+}

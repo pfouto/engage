@@ -1,26 +1,26 @@
 {
   "nodes": {
-    "gros-1": {
+    "gros-104": {
       "local_db": true,
-      "partitions" : ["part1", "part3"]
+      "partitions" : ["part1", "part3", "part2"]
     },
-    "gros-2": {
+    "gros-102": {
       "local_db": true,
-      "partitions" : ["part2", "part1"]
+      "partitions" : ["part2", "part1", "part4"]
     },
-    "gros-3": {
+    "gros-103": {
       "local_db": true,
-      "partitions" : ["part3", "part2"]
+      "partitions" : ["part3", "part2", "part4"]
     }
   },
   "links": [
     [
-      "gros-1",
-      "gros-2"
+      "gros-104",
+      "gros-102"
     ],
     [
-      "gros-2",
-      "gros-3"
+      "gros-102",
+      "gros-103"
     ]
   ]
 }

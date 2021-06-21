@@ -17,17 +17,16 @@ fun main(args: Array<String>) {
     System.setProperty("log4j2.configurationFile", "config/log4j2.xml")
 
     val logger: Logger = LogManager.getLogger()
+    val hostname = InetAddress.getLocalHost().hostName
+    //Strip suffix
+    val me = if (hostname.indexOf('.') != -1) hostname.subSequence(0, hostname.indexOf('.')) else hostname
+    logger.info("Me $me")
 
     val reader: Reader = Files.newBufferedReader(Paths.get("config/tree.json"))
     val tree = Gson().fromJson(reader, TreeFile::class.java)
     reader.close()
 
-    val hostname = InetAddress.getLocalHost().hostName
-    val me = if (hostname.indexOf('.') != -1) hostname.subSequence(0, hostname.indexOf('.')) else hostname
-
-    logger.info("Me $me")
     val myInfo = tree.nodes[me] ?: throw AssertionError("Am not part of tree")
-
     val myNeighs = tree.links.filter { it.contains(me) }.map { it.first { p -> p != me } }.toCollection(ArrayList())
 
     val partitionTargets: MutableMap<String, MutableList<String>> = mutableMapOf()

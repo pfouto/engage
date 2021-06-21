@@ -2,7 +2,7 @@ import com.datastax.oss.driver.api.core.CqlSession
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader
 import messages.mixed.MetadataFlush
-import messages.mixed.UpdateNotification
+import messages.mixed.UpdateNot
 import messages.peer.GossipMessage
 import messages.server.TargetsMessage
 import org.apache.logging.log4j.LogManager
@@ -14,9 +14,11 @@ import pt.unl.fct.di.novasys.channel.simpleclientserver.events.ClientUpEvent
 import pt.unl.fct.di.novasys.channel.tcp.TCPChannel
 import pt.unl.fct.di.novasys.channel.tcp.events.*
 import pt.unl.fct.di.novasys.network.data.Host
+import timers.FlushTimer
 import timers.GossipTimer
 import timers.ReconnectTimer
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.time.Duration
 import java.util.*
 import kotlin.system.exitProcess
@@ -41,6 +43,10 @@ class Engage(
     private val reconnectInterval: Long = props.getProperty("reconnect_interval", "5000").toLong()
     private val gossipInterval: Long = props.getProperty("gossip_interval", "5000").toLong()
 
+    private val mfEnabled: Boolean
+    private val mfTimeoutMs: Long
+    private val bayouStabMs: Int
+
     private val localDB: Boolean = myInfo.local_db
     private val partitions: List<String> = myInfo.partitions ?: emptyList()
     private val neighbours: Map<Host, NeighState>
@@ -49,6 +55,11 @@ class Engage(
         val address = props.getProperty("address")
         peerPort = props.getProperty("peer.port", DEFAULT_PEER_PORT).toInt()
         me = Host(InetAddress.getByName(address), peerPort)
+        mfEnabled = props.getProperty("mf_enabled").toBoolean()
+        mfTimeoutMs = props.getProperty("mf_timeout_ms").toLong()
+        bayouStabMs = props.getProperty("bayou.stab_ms").toInt()
+
+        logger.info("mf ${if(mfEnabled) "enabled" else "disabled"}, mfTo $mfTimeoutMs, bayouTo $bayouStabMs")
 
         serverChannel = if (localDB) {
             val serverProps = Properties()
@@ -78,25 +89,29 @@ class Engage(
 
         registerMessageSerializer(peerChannel, GossipMessage.MSG_ID, GossipMessage.serializer)
         registerMessageSerializer(peerChannel, MetadataFlush.MSG_ID, MetadataFlush.serializer)
-        registerMessageSerializer(peerChannel, UpdateNotification.MSG_ID, UpdateNotification.serializer)
+        registerMessageSerializer(peerChannel, UpdateNot.MSG_ID, UpdateNot.serializer)
 
         registerMessageHandler(peerChannel, GossipMessage.MSG_ID, this::onGossipMessage, this::onMessageFailed)
-        registerMessageHandler(peerChannel, UpdateNotification.MSG_ID, this::onClientUpdateNot, this::onMessageFailed)
+        registerMessageHandler(peerChannel, UpdateNot.MSG_ID, this::onPeerUpdateNot, this::onMessageFailed)
+        registerMessageHandler(peerChannel, MetadataFlush.MSG_ID, this::onPeerMetadataFlush, this::onMessageFailed)
 
         if (serverChannel != null) {
             registerChannelEventHandler(serverChannel, ClientDownEvent.EVENT_ID, this::onClientDown)
             registerChannelEventHandler(serverChannel, ClientUpEvent.EVENT_ID, this::onClientUp)
 
             registerMessageSerializer(serverChannel, TargetsMessage.MSG_ID, TargetsMessage.serializer)
+            registerMessageSerializer(serverChannel, UpdateNot.MSG_ID, UpdateNot.serializer)
             registerMessageSerializer(serverChannel, MetadataFlush.MSG_ID, MetadataFlush.serializer)
-            registerMessageSerializer(serverChannel, UpdateNotification.MSG_ID, UpdateNotification.serializer)
 
-            registerMessageHandler(peerChannel, UpdateNotification.MSG_ID, this::onPeerUpdateNot, this::onMessageFailed)
-            registerMessageHandler(peerChannel, MetadataFlush.MSG_ID, this::onPeerMetadataFlush, this::onMessageFailed)
+            registerMessageHandler(serverChannel,
+                UpdateNot.MSG_ID,
+                this::onClientUpdateNot,
+                this::onMessageFailed)
         }
 
         registerTimerHandler(ReconnectTimer.TIMER_ID, this::onReconnectTimer)
         registerTimerHandler(GossipTimer.TIMER_ID, this::onGossipTimer)
+        registerTimerHandler(FlushTimer.TIMER_ID, this::onFlushTimer)
 
         neighbours.keys.forEach {
             logger.info("Connecting to $it")
@@ -126,57 +141,94 @@ class Engage(
     }
 
     private fun onGossipMessage(msg: GossipMessage, from: Host, sourceProto: Short, channelId: Int) {
-        logger.debug("Received $msg from ${from.address.canonicalHostName}")
+        logger.trace("Received $msg from ${from.address.hostAddress}")
         val info = neighbours[from] ?: throw AssertionError("Not in neighbours list: $from")
         info.partitions = msg.parts
     }
 
-    private fun propagateUN(msg: UpdateNotification, sourceEdge: Host?) {
+    private fun onFlushTimer(timer: FlushTimer, uId: Long) {
+        if (!mfEnabled) throw AssertionError("Received $timer but mf are disabled")
+
+        logger.debug("Flush: ${timer.edge}")
+        val neighState = neighbours[timer.edge]!!
+        if (neighState.pendingMF != null) {
+            sendMessage(peerChannel, neighState.pendingMF, timer.edge)
+            neighState.pendingMF = null
+        }
+    }
+
+    private fun propagateUN(msg: UpdateNot, sourceEdge: Host?) {
         neighbours.forEach { (neigh, nState) ->
             if (neigh != sourceEdge) {
-                if (nState.partitions.containsKey(msg.partition)) {
-                    //Direct propagate (and flush MF)
-                    val toSend: UpdateNotification
-                    if (nState.pendingMF != null) {
+                if (msg.part == "migration" || nState.partitions.containsKey(msg.part)) {
+                    //Direct propagate (and flush MF if enabled)
+                    val toSend: UpdateNot
+                    if (mfEnabled && nState.pendingMF != null) {
                         toSend = msg.copyMergingMF(nState.pendingMF!!)
                         nState.pendingMF = null
+                        cancelTimer(nState.timerId)
                     } else toSend = msg
 
                     sendMessage(peerChannel, toSend, neigh)
-                } else {
-                    //Create or merge MF
+                } else if (mfEnabled) {
+                    //Forward received piggybacked MF
+                    if (msg.mf != null) {
+                        sendMessage(peerChannel, msg.mf, neigh)
+                    }
+                    //Either merge msg to mf, or store and create timer
                     if (nState.pendingMF != null) {
-                        //TODO maybe only store if from client? else flush?
                         nState.pendingMF!!.merge(msg.source, msg.vUp)
                     } else {
                         nState.pendingMF = MetadataFlush.single(msg.source, msg.vUp)
-                        //TODO setup timer
+                        nState.timerId = setupTimer(FlushTimer(neigh), mfTimeoutMs)
                     }
                 }
             }
         }
     }
 
-    private fun onClientUpdateNot(msg: UpdateNotification, from: Host, sourceProto: Short, channelId: Int) {
-        logger.debug("Received $msg from client ${from.address.canonicalHostName}")
+    private fun onClientUpdateNot(msg: UpdateNot, from: Host, sourceProto: Short, channelId: Int) {
+        logger.debug("Received $msg from client")
         propagateUN(msg, null)
     }
 
-
-    private fun onPeerUpdateNot(msg: UpdateNotification, from: Host, sourceProto: Short, channelId: Int) {
-        logger.debug("Received $msg from peer ${from.address.canonicalHostName}")
+    private fun onPeerUpdateNot(msg: UpdateNot, from: Host, sourceProto: Short, channelId: Int) {
+        logger.debug("Received $msg from peer ${from.address.hostAddress}")
         if (!neighbours.containsKey(from)) throw AssertionError("Msg from unknown neigh $from")
-        //TODO store MF?
         propagateUN(msg, from)
-        if (serverChannel != null)
-            sendMessage(serverChannel, msg, localClient!!)
+        if (serverChannel != null) {
+            if (msg.part == "migration" || partitions.contains(msg.part)) {
+                sendMessage(serverChannel, msg, localClient!!)
+            }else if (mfEnabled){
+                val single = MetadataFlush.single(msg.source, msg.vUp)
+                if (msg.mf != null) single.merge(msg.mf)
+                sendMessage(serverChannel, single, localClient!!)
+            }
+        }
     }
 
     private fun onPeerMetadataFlush(msg: MetadataFlush, from: Host, sourceProto: Short, channelId: Int) {
-        logger.debug("Received $msg from ${from.address.canonicalHostName}")
+        if (!mfEnabled) throw AssertionError("Received $msg but mf are disabled")
+
+        logger.debug("Received $msg from ${from.address.hostAddress}")
         if (!neighbours.containsKey(from)) throw AssertionError("Msg from unknown neigh $from")
 
-        //TODO send to all neighs except, and to client. Do not enq!
+        neighbours.forEach { (neigh, nState) ->
+            if (neigh != from) {
+                val toSend: MetadataFlush
+                if (nState.pendingMF != null) {
+                    toSend = nState.pendingMF!!
+                    toSend.merge(msg)
+                    nState.pendingMF = null
+                    cancelTimer(nState.timerId)
+                } else {
+                    toSend = msg
+                }
+                sendMessage(peerChannel, toSend, neigh)
+            }
+        }
+        if (serverChannel != null)
+            sendMessage(serverChannel, msg, localClient!!)
     }
 
     private fun onMessageFailed(msg: ProtoMessage, to: Host, destProto: Short, cause: Throwable, channelId: Int) {
@@ -217,26 +269,36 @@ class Engage(
     private fun onClientUp(event: ClientUpEvent, channelId: Int) {
         logger.info("Client connection up from ${event.client}, creating partitions and tables")
         localClient = event.client
-        val loader = DriverConfigLoader.programmaticBuilder()
-            .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(10)).build()
-        CqlSession.builder().withConfigLoader(loader).build().use { session ->
-            try {
-                for (partition in partitions) {
-                    logger.debug("Dropping partition $partition")
-                    session.execute("DROP KEYSPACE IF EXISTS $partition")
-                    logger.debug("Creating partition $partition")
-                    session.execute("CREATE KEYSPACE $partition WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
-                    logger.debug("Creating table $partition.usertable")
-                    session.execute("create table ${partition}.usertable (y_id varchar primary key, field0 varchar, clock blob)")
+        try {
+            val loader = DriverConfigLoader.programmaticBuilder()
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(10)).build()
+            CqlSession.builder().addContactPoint(InetSocketAddress.createUnresolved(me.address.hostAddress, 9042))
+                .withLocalDatacenter("datacenter1").withConfigLoader(loader).build().use { session ->
+
+                    logger.debug("Dropping partition migration")
+                    session.execute("DROP KEYSPACE IF EXISTS migration")
+                    logger.debug("Creating partition migration")
+                    session.execute("CREATE KEYSPACE migration WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
+                    logger.debug("Creating table migration.migration")
+                    session.execute("create table migration.migration (y_id varchar primary key, field0 varchar, clock blob)")
+
+                    for (partition in partitions) {
+                        logger.debug("Dropping partition $partition")
+                        session.execute("DROP KEYSPACE IF EXISTS $partition")
+                        logger.debug("Creating partition $partition")
+                        session.execute("CREATE KEYSPACE $partition WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
+                        logger.debug("Creating table $partition.usertable")
+                        session.execute("create table ${partition}.usertable (y_id varchar primary key, field0 varchar, clock blob)")
+                    }
+
                 }
-            } catch (e: Exception) {
-                logger.error("Error setting up partitions, exiting... ${e.message}")
-                e.printStackTrace()
-                exitProcess(1)
-            }
+        } catch (e: Exception) {
+            logger.error("Error setting up partitions, exiting... ${e.message}")
+            e.printStackTrace()
+            exitProcess(1)
         }
         logger.debug("Sending targets msg: $targets")
-        sendMessage(serverChannel!!, TargetsMessage(targets, all), event.client)
+        sendMessage(serverChannel!!, TargetsMessage(targets, all, bayouStabMs), event.client)
         logger.info("Setup completed.")
     }
 

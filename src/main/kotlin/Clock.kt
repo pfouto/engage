@@ -30,4 +30,9 @@ class Clock (val value : Map<InetAddress, Int> = mapOf()) {
 
     }
 
+    override fun toString(): String {
+        return "Clock($value)"
+    }
+
+
 }

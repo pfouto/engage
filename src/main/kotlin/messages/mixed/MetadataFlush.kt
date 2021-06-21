@@ -49,7 +49,7 @@ class MetadataFlush(val updates: MutableMap<InetAddress, Int>) : ProtoMessage(MS
     }
 
     fun merge(other: MetadataFlush) {
-        other.updates.forEach { (k, v) -> updates.merge(k, v, Math::max) }
+        updates.forEach { (k, v) -> other.updates.merge(k, v, Math::max) }
     }
 
 
