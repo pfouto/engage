@@ -2,14 +2,14 @@
 <Configuration status="INFO" shutdownHook="disable">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-				<PatternLayout pattern="%highlight{%level{length=1} [%t] %d{HH:mm:ss,SSS} %logger{0}} %msg%n"/>
+            <PatternLayout pattern="%highlight{%level{length=1} [%t] %d{HH:mm:ss,SSS} %logger{0}} %msg%n"/>
         </Console>
 
-        <!--File name="MyFile" fileName="${sys:logFilename}.log" append="false" immediateFlush="true">
+        <File name="MyFile" fileName="${sys:logFilename}.log" append="false" immediateFlush="true">
             <PatternLayout pattern="%highlight{%level{length=1}[%d{HH:mm:ss,SSS}] [%t]%logger{0}:} %msg%n"/>
         </File>
 
-        <File name="MetricsFile" fileName="${sys:logFilename}.metrics" append="false" immediateFlush="true">
+        <!--File name="MetricsFile" fileName="${sys:logFilename}.metrics" append="false" immediateFlush="true">
             <PatternLayout pattern="%highlight{%level{length=1}[%d{HH:mm:ss,SSS}] [%t]%logger{0}:} %msg%n"/>
         </File-->
 
@@ -31,10 +31,10 @@
             <AppenderRef ref="MyFile" level="all"/>
         </Logger-->
 
-        <Root level="debug">
+        <Root level="info">
             <AppenderRef ref="Console" level="info"/>
-           <!--AppenderRef ref="MyFile" level="all"/-->
-       </Root>
-   </Loggers>
+            <AppenderRef ref="MyFile" level="info"/>
+        </Root>
+    </Loggers>
 
 </Configuration>

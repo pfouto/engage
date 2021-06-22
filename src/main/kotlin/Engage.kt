@@ -51,6 +51,8 @@ class Engage(
     private val partitions: List<String> = myInfo.partitions ?: emptyList()
     private val neighbours: Map<Host, NeighState>
 
+    private var firstClient: Boolean
+
     init {
         val address = props.getProperty("address")
         peerPort = props.getProperty("peer.port", DEFAULT_PEER_PORT).toInt()
@@ -58,8 +60,8 @@ class Engage(
         mfEnabled = props.getProperty("mf_enabled").toBoolean()
         mfTimeoutMs = props.getProperty("mf_timeout_ms").toLong()
         bayouStabMs = props.getProperty("bayou.stab_ms").toInt()
-
-        logger.info("mf ${if(mfEnabled) "enabled" else "disabled"}, mfTo $mfTimeoutMs, bayouTo $bayouStabMs")
+        firstClient = true
+        logger.info("mf ${if (mfEnabled) "enabled" else "disabled"}, mfTo $mfTimeoutMs, bayouTo $bayouStabMs")
 
         serverChannel = if (localDB) {
             val serverProps = Properties()
@@ -124,7 +126,8 @@ class Engage(
     }
 
     private fun onGossipTimer(timer: GossipTimer, uId: Long) {
-        logger.debug("Gossip: $neighbours")
+        if (logger.isDebugEnabled)
+            logger.debug("Gossip: $neighbours")
         neighbours.filter { it.value.connected }.keys.forEach { sendMessage(peerChannel, buildMessageFor(it), it) }
     }
 
@@ -141,15 +144,16 @@ class Engage(
     }
 
     private fun onGossipMessage(msg: GossipMessage, from: Host, sourceProto: Short, channelId: Int) {
-        logger.trace("Received $msg from ${from.address.hostAddress}")
+        if (logger.isDebugEnabled)
+            logger.debug("Received $msg from ${from.address.hostAddress}")
         val info = neighbours[from] ?: throw AssertionError("Not in neighbours list: $from")
         info.partitions = msg.parts
     }
 
     private fun onFlushTimer(timer: FlushTimer, uId: Long) {
         if (!mfEnabled) throw AssertionError("Received $timer but mf are disabled")
-
-        logger.debug("Flush: ${timer.edge}")
+        if (logger.isDebugEnabled)
+            logger.debug("Flush: ${timer.edge}")
         val neighState = neighbours[timer.edge]!!
         if (neighState.pendingMF != null) {
             sendMessage(peerChannel, neighState.pendingMF, timer.edge)
@@ -188,18 +192,20 @@ class Engage(
     }
 
     private fun onClientUpdateNot(msg: UpdateNot, from: Host, sourceProto: Short, channelId: Int) {
-        logger.debug("Received $msg from client")
+        if (logger.isDebugEnabled)
+            logger.debug("Received $msg from client")
         propagateUN(msg, null)
     }
 
     private fun onPeerUpdateNot(msg: UpdateNot, from: Host, sourceProto: Short, channelId: Int) {
-        logger.debug("Received $msg from peer ${from.address.hostAddress}")
+        if (logger.isDebugEnabled)
+            logger.debug("Received $msg from peer ${from.address.hostAddress}")
         if (!neighbours.containsKey(from)) throw AssertionError("Msg from unknown neigh $from")
         propagateUN(msg, from)
         if (serverChannel != null) {
             if (msg.part == "migration" || partitions.contains(msg.part)) {
                 sendMessage(serverChannel, msg, localClient!!)
-            }else if (mfEnabled){
+            } else if (mfEnabled) {
                 val single = MetadataFlush.single(msg.source, msg.vUp)
                 if (msg.mf != null) single.merge(msg.mf)
                 sendMessage(serverChannel, single, localClient!!)
@@ -209,8 +215,8 @@ class Engage(
 
     private fun onPeerMetadataFlush(msg: MetadataFlush, from: Host, sourceProto: Short, channelId: Int) {
         if (!mfEnabled) throw AssertionError("Received $msg but mf are disabled")
-
-        logger.debug("Received $msg from ${from.address.hostAddress}")
+        if (logger.isDebugEnabled)
+            logger.debug("Received $msg from ${from.address.hostAddress}")
         if (!neighbours.containsKey(from)) throw AssertionError("Msg from unknown neigh $from")
 
         neighbours.forEach { (neigh, nState) ->
@@ -247,7 +253,8 @@ class Engage(
     }
 
     private fun onReconnectTimer(timer: ReconnectTimer, uId: Long) {
-        logger.debug("Connecting out to ${timer.node}")
+        if (logger.isDebugEnabled)
+            logger.debug("Connecting out to ${timer.node}")
         openConnection(timer.node, peerChannel)
     }
 
@@ -259,47 +266,55 @@ class Engage(
     }
 
     private fun onInConnectionUp(event: InConnectionUp, channelId: Int) {
-        logger.debug("Connection in up from ${event.node}")
+        if (logger.isDebugEnabled)
+            logger.debug("Connection in up from ${event.node}")
     }
 
     private fun onInConnectionDown(event: InConnectionDown, channelId: Int) {
-        logger.warn("Connection in down from ${event.node}")
+        if (logger.isDebugEnabled)
+            logger.warn("Connection in down from ${event.node}")
     }
 
     private fun onClientUp(event: ClientUpEvent, channelId: Int) {
-        logger.info("Client connection up from ${event.client}, creating partitions and tables")
-        localClient = event.client
-        try {
-            val loader = DriverConfigLoader.programmaticBuilder()
-                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(10)).build()
-            CqlSession.builder().addContactPoint(InetSocketAddress.createUnresolved(me.address.hostAddress, 9042))
-                .withLocalDatacenter("datacenter1").withConfigLoader(loader).build().use { session ->
+        if(firstClient) {
+            firstClient = false
+            logger.info("Client connection up from ${event.client}, creating partitions and tables")
+            localClient = event.client
+            try {
+                val loader = DriverConfigLoader.programmaticBuilder()
+                    .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(10)).build()
+                CqlSession.builder().addContactPoint(InetSocketAddress.createUnresolved(me.address.hostAddress, 9042))
+                    .withLocalDatacenter("datacenter1").withConfigLoader(loader).build().use { session ->
 
-                    logger.debug("Dropping partition migration")
-                    session.execute("DROP KEYSPACE IF EXISTS migration")
-                    logger.debug("Creating partition migration")
-                    session.execute("CREATE KEYSPACE migration WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
-                    logger.debug("Creating table migration.migration")
-                    session.execute("create table migration.migration (y_id varchar primary key, field0 varchar, clock blob)")
+                        if (logger.isDebugEnabled) logger.debug("Dropping partition migration")
+                        session.execute("DROP KEYSPACE IF EXISTS migration")
+                        if (logger.isDebugEnabled) logger.debug("Creating partition migration")
+                        session.execute("CREATE KEYSPACE migration WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
+                        if (logger.isDebugEnabled) logger.debug("Creating table migration.migration")
+                        session.execute("create table migration.migration (y_id varchar primary key, field0 varchar, clock blob)")
 
-                    for (partition in partitions) {
-                        logger.debug("Dropping partition $partition")
-                        session.execute("DROP KEYSPACE IF EXISTS $partition")
-                        logger.debug("Creating partition $partition")
-                        session.execute("CREATE KEYSPACE $partition WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
-                        logger.debug("Creating table $partition.usertable")
-                        session.execute("create table ${partition}.usertable (y_id varchar primary key, field0 varchar, clock blob)")
+                        for (partition in partitions) {
+                            if (logger.isDebugEnabled) logger.debug("Dropping partition $partition")
+                            session.execute("DROP KEYSPACE IF EXISTS $partition")
+                            if (logger.isDebugEnabled) logger.debug("Creating partition $partition")
+                            session.execute("CREATE KEYSPACE $partition WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
+                            if (logger.isDebugEnabled) logger.debug("Creating table $partition.usertable")
+                            session.execute("create table ${partition}.usertable (y_id varchar primary key, field0 varchar, clock blob)")
+                        }
+
                     }
-
-                }
-        } catch (e: Exception) {
-            logger.error("Error setting up partitions, exiting... ${e.message}")
-            e.printStackTrace()
-            exitProcess(1)
+            } catch (e: Exception) {
+                logger.error("Error setting up partitions, exiting... ${e.message}")
+                e.printStackTrace()
+                exitProcess(1)
+            }
+            logger.info("Setup completed.")
+        } else {
+            logger.info("Client connection up from ${event.client}, skipping partitions recreation")
+            localClient = event.client
         }
-        logger.debug("Sending targets msg: $targets")
+        if (logger.isDebugEnabled) logger.debug("Sending targets msg: $targets")
         sendMessage(serverChannel!!, TargetsMessage(targets, all, bayouStabMs), event.client)
-        logger.info("Setup completed.")
     }
 
     private fun onClientDown(event: ClientDownEvent, channelId: Int) {

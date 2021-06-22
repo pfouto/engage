@@ -48,7 +48,7 @@ fun main(args: Array<String>) {
 
     val babel = Babel.getInstance()
 
-    logger.info(tree)
+    //logger.info(tree)
 
     val engage = Engage(props, myInfo, myNeighs, partitionTargets, all)
     babel.registerProtocol(engage)
