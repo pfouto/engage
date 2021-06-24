@@ -61,7 +61,6 @@ class Engage(
         mfTimeoutMs = props.getProperty("mf_timeout_ms").toLong()
         bayouStabMs = props.getProperty("bayou.stab_ms").toInt()
         firstClient = true
-        logger.info("mf ${if (mfEnabled) "enabled" else "disabled"}, mfTo $mfTimeoutMs, bayouTo $bayouStabMs")
 
         serverChannel = if (localDB) {
             val serverProps = Properties()
@@ -116,13 +115,15 @@ class Engage(
         registerTimerHandler(FlushTimer.TIMER_ID, this::onFlushTimer)
 
         neighbours.keys.forEach {
-            logger.info("Connecting to $it")
+            if (logger.isDebugEnabled)
+                logger.debug("Connecting to $it")
             openConnection(it, peerChannel)
         }
 
         setupPeriodicTimer(GossipTimer(), gossipInterval, gossipInterval)
 
-        logger.info("Engage started, neighbours: {}", neighbours)
+        logger.info("Engage started, me $me, mf ${if (mfEnabled) "YES" else "NO"}" +
+                "${if (mfEnabled) ", mfTo $mfTimeoutMs" else ""}, bTo $bayouStabMs neighs: ${neighbours.keys}")
     }
 
     private fun onGossipTimer(timer: GossipTimer, uId: Long) {
@@ -242,7 +243,8 @@ class Engage(
     }
 
     private fun onOutConnectionUp(event: OutConnectionUp, channelId: Int) {
-        logger.info("Connected out to ${event.node}")
+        if (logger.isDebugEnabled)
+            logger.debug("Connected out to ${event.node}")
         val info = neighbours[event.node] ?: throw AssertionError("Not in neighbours list: ${event.node}")
         info.connected = true
     }
@@ -276,7 +278,7 @@ class Engage(
     }
 
     private fun onClientUp(event: ClientUpEvent, channelId: Int) {
-        if(firstClient) {
+        if (firstClient) {
             firstClient = false
             logger.info("Client connection up from ${event.client}, creating partitions and tables")
             localClient = event.client

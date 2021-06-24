@@ -20,7 +20,7 @@ fun main(args: Array<String>) {
     val hostname = InetAddress.getLocalHost().hostName
     //Strip suffix
     val me = if (hostname.indexOf('.') != -1) hostname.subSequence(0, hostname.indexOf('.')) else hostname
-    logger.info("Me $me")
+    //logger.info("Me $me")
 
     val reader: Reader = Files.newBufferedReader(Paths.get("config/tree.json"))
     val tree = Gson().fromJson(reader, TreeFile::class.java)
@@ -38,7 +38,7 @@ fun main(args: Array<String>) {
                     partitionTargets[partition]!!.add(h)
             }
         }
-        logger.info(partitionTargets)
+        logger.debug(partitionTargets)
     }
 
     val all = tree.nodes.map { n -> n.key }.toSet()

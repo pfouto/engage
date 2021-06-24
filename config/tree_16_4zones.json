@@ -52,7 +52,7 @@
     "node-7": {
       "local_db": true,
       "up": false,
-      "region": 2,
+      "region": 3,
       "partitions": [
         "p7",  "p9",  "p2",  "g1"
       ]

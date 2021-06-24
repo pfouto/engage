@@ -19,8 +19,9 @@
         <!-- UNCOMMENT TO SPECIFY LOG LEVEL OF PACKAGES
         <Logger level="info" name="protocols.apps"/>
         <Logger level="info" name="protocols.overlays"/>
-        <Logger level="debug" name="protocols.dissemination"/>
-        -->
+        <Logger level="debug" name="protocols.dissemination"/-->
+        <Logger level="warn" name="com.datastax.oss.driver"/>
+
 
         <Logger level="info" name="io.netty"/>
         <Logger level="info" name="pt.unl.fct.di.novasys.network"/>
