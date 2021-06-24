@@ -115,12 +115,10 @@ class Engage(
         registerTimerHandler(FlushTimer.TIMER_ID, this::onFlushTimer)
 
         neighbours.keys.forEach {
-            if (logger.isDebugEnabled)
-                logger.debug("Connecting to $it")
-            openConnection(it, peerChannel)
+            setupTimer(ReconnectTimer(it), 1500)
         }
 
-        setupPeriodicTimer(GossipTimer(), gossipInterval, gossipInterval)
+        setupPeriodicTimer(GossipTimer(), 1500+gossipInterval, gossipInterval)
 
         logger.info("Engage started, me $me, mf ${if (mfEnabled) "YES" else "NO"}" +
                 "${if (mfEnabled) ", mfTo $mfTimeoutMs" else ""}, bTo $bayouStabMs neighs: ${neighbours.keys}")
