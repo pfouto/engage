@@ -21,6 +21,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.time.Duration
 import java.util.*
+import kotlin.streams.toList
 import kotlin.system.exitProcess
 
 const val DEFAULT_SERVER_PORT = "1500"
@@ -118,10 +119,11 @@ class Engage(
             setupTimer(ReconnectTimer(it), 1500)
         }
 
-        setupPeriodicTimer(GossipTimer(), 1500+gossipInterval, gossipInterval)
+        setupPeriodicTimer(GossipTimer(), 1500 + gossipInterval, gossipInterval)
 
         logger.info("Engage started, me $me, mf ${if (mfEnabled) "YES" else "NO"}" +
-                "${if (mfEnabled) ", mfTo $mfTimeoutMs" else ""}, bTo $bayouStabMs neighs: ${neighbours.keys}")
+                "${if (mfEnabled) ", mfTo $mfTimeoutMs" else ""}, bTo $bayouStabMs neighs: " +
+                "${neighbours.keys.stream().map { s -> s.address.hostAddress.substring(10) }.toList()}")
     }
 
     private fun onGossipTimer(timer: GossipTimer, uId: Long) {
@@ -174,15 +176,15 @@ class Engage(
 
                     sendMessage(peerChannel, toSend, neigh)
                 } else if (mfEnabled) {
-                    //Forward received piggybacked MF
-                    if (msg.mf != null) {
-                        sendMessage(peerChannel, msg.mf, neigh)
-                    }
                     //Either merge msg to mf, or store and create timer
                     if (nState.pendingMF != null) {
+                        if (msg.mf != null)
+                            nState.pendingMF!!.merge(msg.mf)
                         nState.pendingMF!!.merge(msg.source, msg.vUp)
                     } else {
                         nState.pendingMF = MetadataFlush.single(msg.source, msg.vUp)
+                        if (msg.mf != null)
+                            nState.pendingMF!!.merge(msg.mf)
                         nState.timerId = setupTimer(FlushTimer(neigh), mfTimeoutMs)
                     }
                 }
@@ -201,6 +203,7 @@ class Engage(
             logger.debug("Received $msg from peer ${from.address.hostAddress}")
         if (!neighbours.containsKey(from)) throw AssertionError("Msg from unknown neigh $from")
         propagateUN(msg, from)
+
         if (serverChannel != null) {
             if (msg.part == "migration" || partitions.contains(msg.part)) {
                 sendMessage(serverChannel, msg, localClient!!)

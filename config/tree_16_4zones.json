@@ -1,133 +1,68 @@
 {
   "nodes": {
     "node-1": {
-      "local_db": true,
-      "up": false,
-      "region": 1,
-      "partitions": [
-        "p1",  "p3",  "p4",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 1,
+      "partitions": ["p1",  "p3",  "p4",  "g1"]
     },
     "node-2": {
-      "local_db": true,
-      "up": false,
-      "region": 1,
-      "partitions": [
-        "p2",  "p1",  "p7",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 1,
+      "partitions": ["p2",  "p1",  "p7",  "g1"]
     },
     "node-3": {
-      "local_db": true,
-      "up": false,
-      "region": 1,
-      "partitions": [
-        "p3",  "p2",  "p10",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 1,
+      "partitions": ["p3",  "p2",  "p10",  "g1"]
     },
     "node-4": {
-      "local_db": true,
-      "up": false,
-      "region": 2,
-      "partitions": [
-        "p4",  "p6",  "p1",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 2,
+      "partitions": ["p4",  "p6",  "p1",  "g1"]
     },
     "node-5": {
-
-      "local_db": true,
-      "up": false,
-      "region": 2,
-      "partitions": [
-        "p5",  "p4",  "p8",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 2,
+      "partitions": ["p5",  "p4",  "p8",  "g1"]
     },
     "node-6": {
-      "local_db": true,
-      "up": false,
-      "region": 2,
-      "partitions": [
-        "p6",  "p5",  "p11",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 2,
+      "partitions": ["p6",  "p5",  "p11",  "g1"]
     },
     "node-7": {
-      "local_db": true,
-      "up": false,
-      "region": 3,
-      "partitions": [
-        "p7",  "p9",  "p2",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 3,
+      "partitions": ["p7",  "p9",  "p2",  "g1"]
     },
     "node-8": {
-      "local_db": true,
-      "up": false,
-      "region": 3,
-      "partitions": [
-        "p8",  "p7",  "p5",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 3,
+      "partitions": ["p8",  "p7",  "p5",  "g1"]
     },
     "node-9": {
-      "local_db": true,
-      "up": false,
-      "region": 3,
-      "partitions": [
-        "p9",  "p8",  "p12",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 3,
+      "partitions": ["p9",  "p8",  "p12",  "g1"]
     },
     "node-10": {
-      "local_db": true,
-      "up": false,
-      "region": 4,
-      "partitions": [
-        "p10",  "p12",  "p3",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 4,
+      "partitions": ["p10",  "p12",  "p3",  "g1"]
     },
     "node-11": {
-      "local_db": true,
-      "up": false,
-      "region": 4,
-      "partitions": [
-        "p11",  "p10",  "p6",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 4,
+      "partitions": ["p11",  "p10",  "p6",  "g1"]
     },
     "node-12": {
-      "local_db": true,
-      "up": false,
-      "region": 4,
-      "partitions": [
-        "p12",  "p11",  "p9",  "g1"
-      ]
+      "local_db": true, "up": false, "region": 4,
+      "partitions": ["p12",  "p11",  "p9",  "g1"]
     },
     "node-13": {
-      "local_db": true,
-      "up": true,
-      "region": 1,
-      "partitions": [
-        "p1",  "p2",  "p3",  "p4",  "p7",  "p10",  "g1"
-      ]
+      "local_db": true, "up": true, "region": 1,
+      "partitions": ["g1", "p1",  "p2",  "p3"]
     },
     "node-14": {
-      "local_db": true,
-      "up": true,
-      "region": 2,
-      "partitions": [
-        "p4",  "p5",  "p6",  "p1",  "p8",  "p11",  "g1"
-      ]
+      "local_db": true, "up": true, "region": 2,
+      "partitions": ["g1", "p4",  "p5",  "p6"]
     },
     "node-15": {
-      "local_db": true,
-      "up": true,
-      "region": 3,
-      "partitions": [
-        "p7",  "p8",  "p9",  "p2",  "p5",  "p12",  "g1"
-      ]
+      "local_db": true, "up": true, "region": 3,
+      "partitions": ["g1", "p7",  "p8",  "p9"]
     },
     "node-16": {
-      "local_db": true,
-      "up": true,
-      "region": 4,
-      "partitions": [
-        "p10",  "p11",  "p12",  "p3",  "p6",  "p9",  "g1"
-      ]
+      "local_db": true, "up": true, "region": 4,
+      "partitions": ["g1", "p10",  "p11",  "p12"]
     }
   },
   "links": [
