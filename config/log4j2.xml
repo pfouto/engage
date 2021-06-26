@@ -32,9 +32,9 @@
             <AppenderRef ref="MyFile" level="all"/>
         </Logger-->
 
-        <Root level="debug">
+        <Root level="info">
             <AppenderRef ref="Console" level="info"/>
-            <AppenderRef ref="MyFile" level="debug"/>
+            <AppenderRef ref="MyFile" level="info"/>
         </Root>
     </Loggers>
 
