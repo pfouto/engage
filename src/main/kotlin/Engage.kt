@@ -67,12 +67,17 @@ class Engage(
             val serverProps = Properties()
             serverProps.setProperty(SimpleServerChannel.ADDRESS_KEY, "localhost")
             serverProps.setProperty(SimpleServerChannel.PORT_KEY, props.getProperty("server.port", DEFAULT_SERVER_PORT))
+            serverProps.setProperty(SimpleServerChannel.HEARTBEAT_INTERVAL_KEY, "3000")
+            serverProps.setProperty(SimpleServerChannel.HEARTBEAT_TOLERANCE_KEY, "10000")
+
             createChannel(SimpleServerChannel.NAME, serverProps)
         } else null
 
         val peerProps = Properties()
         peerProps.setProperty(TCPChannel.ADDRESS_KEY, address)
         peerProps.setProperty(TCPChannel.PORT_KEY, peerPort.toString())
+        peerProps.setProperty(TCPChannel.HEARTBEAT_INTERVAL_KEY, "3000")
+        peerProps.setProperty(TCPChannel.HEARTBEAT_TOLERANCE_KEY, "10000")
         peerChannel = createChannel(TCPChannel.NAME, peerProps)
 
         neighbours = mutableMapOf()

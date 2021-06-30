@@ -16,13 +16,17 @@ fun main(args: Array<String>) {
 
     System.setProperty("log4j2.configurationFile", "config/log4j2.xml")
 
+
     val logger: Logger = LogManager.getLogger()
     val hostname = InetAddress.getLocalHost().hostName
     //Strip suffix
     val me = if (hostname.indexOf('.') != -1) hostname.subSequence(0, hostname.indexOf('.')) else hostname
     //logger.info("Me $me")
 
-    val reader: Reader = Files.newBufferedReader(Paths.get("config/tree.json"))
+    val props = Babel.loadConfig(args, "config/properties.conf")
+    addInterfaceIp(props)
+
+    val reader: Reader = Files.newBufferedReader(Paths.get(props.getProperty("tree_file")))
     val tree = Gson().fromJson(reader, TreeFile::class.java)
     reader.close()
 
@@ -41,10 +45,7 @@ fun main(args: Array<String>) {
         logger.debug(partitionTargets)
     }
 
-    val all = tree.nodes.map { n -> n.key }.toSet()
-
-    val props = Babel.loadConfig(args, "config/properties.conf")
-    addInterfaceIp(props)
+    val all = tree.nodes.map { n -> n.key }.filter { h -> h != hostname && h != me }.toSet()
 
     val babel = Babel.getInstance()
 
