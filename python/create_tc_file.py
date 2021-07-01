@@ -50,8 +50,6 @@ for i in range(1, n_clients + 1):
     for j in nodes:
         server_reg = nodes[j]['region']
         add = 20
-        if not nodes[j]['dc']:
-            add += 20
         lat = str(round(latency[client_reg][server_reg] / 2 + add))
         output.write(lat + " " * (5 - len(str(lat))))
     output.write("\n")
