@@ -1,0 +1,130 @@
+{
+  "nodes": {
+    "node-1": {
+      "local_db": true, "dc": false, "region": 1,
+      "partitions": ["p1",  "p3"]
+    },
+    "node-2": {
+      "local_db": true, "dc": false, "region": 1,
+      "partitions": ["p2",  "p1"]
+    },
+    "node-3": {
+      "local_db": true, "dc": false, "region": 1,
+      "partitions": ["p3",  "p2"]
+    },
+    "node-4": {
+      "local_db": true, "dc": false, "region": 2,
+      "partitions": ["p4",  "p6"]
+    },
+    "node-5": {
+      "local_db": true, "dc": false, "region": 2,
+      "partitions": ["p5",  "p4"]
+    },
+    "node-6": {
+      "local_db": true, "dc": false, "region": 2,
+      "partitions": ["p6",  "p5"]
+    },
+    "node-7": {
+      "local_db": true, "dc": false, "region": 3,
+      "partitions": ["p7",  "p9"]
+    },
+    "node-8": {
+      "local_db": true, "dc": false, "region": 3,
+      "partitions": ["p8",  "p7"]
+    },
+    "node-9": {
+      "local_db": true, "dc": false, "region": 3,
+      "partitions": ["p9",  "p8"]
+    },
+    "node-10": {
+      "local_db": true, "dc": false, "region": 4,
+      "partitions": ["p10",  "p12"]
+    },
+    "node-11": {
+      "local_db": true, "dc": false, "region": 4,
+      "partitions": ["p11",  "p10"]
+    },
+    "node-12": {
+      "local_db": true, "dc": false, "region": 4,
+      "partitions": ["p12",  "p11"]
+    },
+    "node-13": {
+      "local_db": true, "dc": true, "region": 1,
+      "partitions": ["p1", "p2", "p3"]
+    },
+    "node-14": {
+      "local_db": true, "dc": true, "region": 2,
+      "partitions": ["p4", "p5", "p6"]
+    },
+    "node-15": {
+      "local_db": true, "dc": true, "region": 3,
+      "partitions": ["p7", "p8", "p9"]
+    },
+    "node-16": {
+      "local_db": true, "dc": true, "region": 4,
+      "partitions": ["p10", "p11", "p12"]
+    }
+  },
+  "links": [
+    [
+      "node-1",
+      "node-13"
+    ],
+    [
+      "node-2",
+      "node-13"
+    ],
+    [
+      "node-3",
+      "node-13"
+    ],
+    [
+      "node-4",
+      "node-14"
+    ],
+    [
+      "node-5",
+      "node-14"
+    ],
+    [
+      "node-6",
+      "node-14"
+    ],
+    [
+      "node-7",
+      "node-15"
+    ],
+    [
+      "node-8",
+      "node-15"
+    ],
+    [
+      "node-9",
+      "node-15"
+    ],
+    [
+      "node-10",
+      "node-16"
+    ],
+    [
+      "node-11",
+      "node-16"
+    ],
+    [
+      "node-12",
+      "node-16"
+    ],
+    [
+      "node-13",
+      "node-14"
+    ],
+    [
+      "node-14",
+      "node-15"
+    ],
+    [
+      "node-15",
+      "node-16"
+    ]
+  ]
+}
