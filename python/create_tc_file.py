@@ -2,7 +2,7 @@
 
 import json
 
-filename = "tree_16_4zones"
+filename = "tree_4_dc_vis"
 
 tree_file = open(f'../config/{filename}.json')
 output = open(f'../config/tc_{filename}', "w")
@@ -20,7 +20,7 @@ dc_down = 5000
 edge_up = 500
 edge_down = 1000
 
-n_clients = 12
+n_clients = 4
 
 output.write("# Server Nodes:\n")
 for i in nodes:
