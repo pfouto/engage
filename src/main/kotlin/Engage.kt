@@ -181,16 +181,22 @@ class Engage(
 
                     sendMessage(peerChannel, toSend, neigh)
                 } else if (mfEnabled) {
-                    //Either merge msg to mf, or store and create timer
-                    if (nState.pendingMF != null) {
-                        if (msg.mf != null)
-                            nState.pendingMF!!.merge(msg.mf)
-                        nState.pendingMF!!.merge(msg.source, msg.vUp)
+                    if(mfTimeoutMs > 0) {
+                        //Either merge msg to mf, or store and create timer
+                        if (nState.pendingMF != null) {
+                            if (msg.mf != null)
+                                nState.pendingMF!!.merge(msg.mf)
+                            nState.pendingMF!!.merge(msg.source, msg.vUp)
+                        } else {
+                            nState.pendingMF = MetadataFlush.single(msg.source, msg.vUp)
+                            if (msg.mf != null)
+                                nState.pendingMF!!.merge(msg.mf)
+                            nState.timerId = setupTimer(FlushTimer(neigh), mfTimeoutMs)
+                        }
                     } else {
-                        nState.pendingMF = MetadataFlush.single(msg.source, msg.vUp)
-                        if (msg.mf != null)
-                            nState.pendingMF!!.merge(msg.mf)
-                        nState.timerId = setupTimer(FlushTimer(neigh), mfTimeoutMs)
+                        val mf = MetadataFlush.single(msg.source, msg.vUp)
+                        if (msg.mf != null) mf.merge(msg.mf)
+                        sendMessage(peerChannel,  mf, neigh)
                     }
                 }
             }
@@ -297,17 +303,21 @@ class Engage(
                         if (logger.isDebugEnabled) logger.debug("Dropping partition migration")
                         session.execute("DROP KEYSPACE IF EXISTS migration")
                         if (logger.isDebugEnabled) logger.debug("Creating partition migration")
-                        session.execute("CREATE KEYSPACE migration WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
+                        session.execute("CREATE KEYSPACE migration WITH replication = " +
+                                "{ 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
                         if (logger.isDebugEnabled) logger.debug("Creating table migration.migration")
-                        session.execute("create table migration.migration (y_id varchar primary key, field0 varchar, clock blob)")
+                        session.execute("create table migration.migration " +
+                                "(y_id varchar primary key, field0 varchar, clock blob)")
 
                         for (partition in partitions) {
                             if (logger.isDebugEnabled) logger.debug("Dropping partition $partition")
                             session.execute("DROP KEYSPACE IF EXISTS $partition")
                             if (logger.isDebugEnabled) logger.debug("Creating partition $partition")
-                            session.execute("CREATE KEYSPACE $partition WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
+                            session.execute("CREATE KEYSPACE $partition WITH replication = " +
+                                    "{ 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
                             if (logger.isDebugEnabled) logger.debug("Creating table $partition.usertable")
-                            session.execute("create table ${partition}.usertable (y_id varchar primary key, field0 varchar, clock blob)")
+                            session.execute("create table ${partition}.usertable " +
+                                    "(y_id varchar primary key, field0 varchar, clock blob)")
                         }
 
                     }
