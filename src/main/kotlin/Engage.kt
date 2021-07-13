@@ -61,7 +61,7 @@ class Engage(
         mfEnabled = props.getProperty("mf_enabled").toBoolean()
         mfTimeoutMs = props.getProperty("mf_timeout_ms").toLong()
         bayouStabMs = props.getProperty("bayou.stab_ms").toInt()
-        firstClient = true
+        firstClient = props.getProperty("setup_cass").toBoolean()
 
         serverChannel = if (localDB) {
             val serverProps = Properties()
