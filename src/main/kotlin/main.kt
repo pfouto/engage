@@ -31,6 +31,7 @@ fun main(args: Array<String>) {
     reader.close()
 
     val myInfo = tree.nodes[me] ?: throw AssertionError("Am not part of tree")
+
     val myNeighs = tree.links.filter { it.contains(me) }.map { it.first { p -> p != me } }.toCollection(ArrayList())
 
     val partitionTargets: MutableMap<String, MutableList<String>> = mutableMapOf()
@@ -45,13 +46,15 @@ fun main(args: Array<String>) {
         logger.debug(partitionTargets)
     }
 
-    val all = tree.nodes.map { n -> n.key }.filter { h -> h != hostname && h != me }.toSet()
+    val all = tree.nodes.map { n -> Pair(n.key, n.value.name?:n.key) }.filter { p -> p.first != hostname && p.first != me }.toMap()
+
+    val myName = myInfo.name?:me.toString()
 
     val babel = Babel.getInstance()
 
     //logger.info(tree)
 
-    val engage = Engage(props, myInfo, myNeighs, partitionTargets, all)
+    val engage = Engage(props, myName, myInfo, myNeighs, partitionTargets, all)
     babel.registerProtocol(engage)
     engage.init(null)
 

@@ -28,9 +28,9 @@ const val DEFAULT_SERVER_PORT = "1500"
 const val DEFAULT_PEER_PORT = "1600"
 
 class Engage(
-    props: Properties, myInfo: PartitionInfo, links: ArrayList<String>,
+    props: Properties, private val myName: String, myInfo: PartitionInfo, links: ArrayList<String>,
     private val targets: Map<String, List<String>>,
-    private val all: Set<String>,
+    private val all: Map<String, String>,
 ) : GenericProtocol("Engage", 100) {
 
     private val logger = LogManager.getLogger()
@@ -332,7 +332,7 @@ class Engage(
             localClient = event.client
         }
         if (logger.isDebugEnabled) logger.debug("Sending targets msg: $targets")
-        sendMessage(serverChannel!!, TargetsMessage(targets, all, bayouStabMs), event.client)
+        sendMessage(serverChannel!!, TargetsMessage(myName, targets, all, bayouStabMs), event.client)
     }
 
     private fun onClientDown(event: ClientDownEvent, channelId: Int) {
