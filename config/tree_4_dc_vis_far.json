@@ -2,22 +2,22 @@
   "nodes": {
     "node-1": {
       "local_db": true, "dc": true, "region": 0,
-      "partitions": ["A", "B"],
+      "partitions": ["a", "b"],
       "name": "DC1"
     },
     "node-2": {
       "local_db": true, "dc": true, "region": 1,
-      "partitions": ["C"],
+      "partitions": ["c"],
       "name": "DC2"
     },
     "node-3": {
       "local_db": true, "dc": true, "region": 2,
-      "partitions": ["B"],
+      "partitions": ["b"],
       "name": "DC3"
     },
     "node-4": {
       "local_db": true, "dc": true, "region": 3,
-      "partitions": ["A", "C"],
+      "partitions": ["a", "c"],
       "name": "DC4"
     }
   },
