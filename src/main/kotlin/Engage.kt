@@ -54,6 +54,9 @@ class Engage(
 
     private var firstClient: Boolean
 
+    private var nUpdateNotMessages: Int
+    private var nMetadataFlushMessages: Int
+
     init {
         val address = props.getProperty("address")
         peerPort = props.getProperty("peer.port", DEFAULT_PEER_PORT).toInt()
@@ -62,6 +65,9 @@ class Engage(
         mfTimeoutMs = props.getProperty("mf_timeout_ms").toLong()
         bayouStabMs = props.getProperty("bayou.stab_ms").toInt()
         firstClient = props.getProperty("setup_cass").toBoolean()
+
+        nUpdateNotMessages = 0
+        nMetadataFlushMessages = 0
 
         serverChannel = if (localDB) {
             val serverProps = Properties()
@@ -162,6 +168,7 @@ class Engage(
             logger.debug("Flush: ${timer.edge}")
         val neighState = neighbours[timer.edge]!!
         if (neighState.pendingMF != null) {
+            nMetadataFlushMessages++
             sendMessage(peerChannel, neighState.pendingMF, timer.edge)
             neighState.pendingMF = null
         }
@@ -178,7 +185,7 @@ class Engage(
                         nState.pendingMF = null
                         cancelTimer(nState.timerId)
                     } else toSend = msg
-
+                    nUpdateNotMessages++
                     sendMessage(peerChannel, toSend, neigh)
                 } else if (mfEnabled) {
                     if(mfTimeoutMs > 0) {
@@ -196,6 +203,7 @@ class Engage(
                     } else {
                         val mf = MetadataFlush.single(msg.source, msg.vUp)
                         if (msg.mf != null) mf.merge(msg.mf)
+                        nMetadataFlushMessages++
                         sendMessage(peerChannel,  mf, neigh)
                     }
                 }
@@ -243,6 +251,7 @@ class Engage(
                 } else {
                     toSend = msg
                 }
+                nUpdateNotMessages++
                 sendMessage(peerChannel, toSend, neigh)
             }
         }
@@ -337,6 +346,11 @@ class Engage(
 
     private fun onClientDown(event: ClientDownEvent, channelId: Int) {
         logger.warn("Client connection down from ${event.client}: ${event.cause}")
+    }
+
+    fun finalLogs() {
+        logger.info("Number of message: {} {} {}",
+            nUpdateNotMessages+nMetadataFlushMessages, nUpdateNotMessages, nMetadataFlushMessages)
     }
 
 }

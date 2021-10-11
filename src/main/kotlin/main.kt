@@ -60,7 +60,7 @@ fun main(args: Array<String>) {
 
     babel.start()
 
-    Runtime.getRuntime().addShutdownHook(Thread { logger.info("Goodbye") })
+    Runtime.getRuntime().addShutdownHook(Thread { engage.finalLogs(); logger.info("Goodbye") })
 }
 
 fun getIpOfInterface(interfaceName: String?): String? {
