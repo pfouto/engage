@@ -251,7 +251,7 @@ class Engage(
                 } else {
                     toSend = msg
                 }
-                nUpdateNotMessages++
+                nMetadataFlushMessages++
                 sendMessage(peerChannel, toSend, neigh)
             }
         }
