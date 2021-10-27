@@ -1,0 +1,36 @@
+{
+  "nodes": {
+    "node-1": {
+      "local_db": true, "dc": true, "region": 0,
+      "partitions": ["a"],
+      "name": "DC1"
+    },
+    "node-2": {
+      "local_db": true, "dc": true, "region": 1,
+      "partitions": ["b", "a"],
+      "name": "DC2"
+    },
+    "node-3": {
+      "local_db": true, "dc": true, "region": 2,
+      "partitions": ["c", "b"],
+      "name": "DC3"
+    },
+    "node-4": {
+      "local_db": true, "dc": true, "region": 3,
+      "partitions": ["c"],
+      "name": "DC4"
+    }
+  },
+  "links": [
+    [
+      "node-1",
+      "node-2"
+    ], [
+      "node-2",
+      "node-3"
+    ], [
+      "node-3",
+      "node-4"
+    ]
+  ]
+}
