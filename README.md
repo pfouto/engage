@@ -4,5 +4,6 @@ Engage has been published in the [2022 International Conference on Computer Comm
 
 The paper can be found [here](https://ieeexplore.ieee.org/abstract/document/9868846).
 
-### Thanks
-This project was partially funded by project [NG-Storage](https://asc.di.fct.unl.pt/~jleitao/ngstorage.php) (PTDC/CCI-INF/32038/2017).
+ ---
+ 
+ This project was partially funded by project [NG-Storage](https://asc.di.fct.unl.pt/~jleitao/ngstorage.php) (PTDC/CCI-INF/32038/2017).
