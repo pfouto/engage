@@ -6,4 +6,4 @@ The paper can be found [here](https://ieeexplore.ieee.org/abstract/document/9868
 
  ---
  
- This project was partially funded by project [NG-Storage](https://asc.di.fct.unl.pt/~jleitao/ngstorage.php) (PTDC/CCI-INF/32038/2017).
+ This work was partially funded by project [NG-Storage](https://asc.di.fct.unl.pt/~jleitao/ngstorage.php) (PTDC/CCI-INF/32038/2017).
